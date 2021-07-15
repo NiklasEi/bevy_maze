@@ -7,6 +7,8 @@ use bevy_prototype_lyon::prelude::*;
 use rand::{thread_rng, Rng};
 use std::convert::TryFrom;
 
+const TILE_SIZE: f32 = 10.;
+
 fn main() {
     App::build()
         .insert_resource(WindowDescriptor {
@@ -69,10 +71,10 @@ impl SlotCoordinate {
     }
 }
 
-fn get_tile(size: f32) -> Rectangle {
+fn get_tile() -> Rectangle {
     Rectangle {
-        width: size.clone(),
-        height: size.clone(),
+        width: TILE_SIZE,
+        height: TILE_SIZE,
         origin: Default::default(),
     }
 }
@@ -84,11 +86,10 @@ fn paint_starter(mut commands: Commands) {
         maze_slots: vec![],
         slots: vec![],
     };
-    let size = 10.;
     commands.spawn_bundle(OrthographicCameraBundle {
         transform: Transform::from_translation(Vec3::new(
-            maze.width as f32 * size,
-            maze.height as f32 * size,
+            maze.width as f32 * TILE_SIZE,
+            maze.height as f32 * TILE_SIZE,
             999.9,
         )),
         ..OrthographicCameraBundle::new_2d()
@@ -99,12 +100,12 @@ fn paint_starter(mut commands: Commands) {
         for column in 0..(2 * maze.width + 1) {
             let entity = commands
                 .spawn_bundle(GeometryBuilder::build_as(
-                    &get_tile(size),
+                    &get_tile(),
                     ShapeColors::new(MazeSlotState::UnTouched.get_color()),
                     DrawMode::Fill(FillOptions::default()),
                     Transform::from_translation(Vec3::new(
-                        column as f32 * size,
-                        row as f32 * size,
+                        column as f32 * TILE_SIZE,
+                        row as f32 * TILE_SIZE,
                         0.,
                     )),
                 ))
@@ -130,10 +131,11 @@ fn paint_starter(mut commands: Commands) {
         .get_mut(starting_point.column)
         .unwrap()
         .state = MazeSlotState::Visited;
-    mark_as_visited(
+    set_maze_slot_state(
         &mut commands,
         SlotCoordinate::from(starting_point),
         &mut maze,
+        MazeSlotState::Visited,
     );
     commands.insert_resource(maze);
 }
@@ -173,14 +175,20 @@ fn visit(
     mut maze: &mut Maze,
 ) {
     let to_visit = SlotCoordinate::from(to.clone());
-    mark_as_visited(&mut commands, to_visit.clone(), &mut maze);
-    mark_as_visited(
+    set_maze_slot_state(
+        &mut commands,
+        to_visit.clone(),
+        &mut maze,
+        MazeSlotState::Visited,
+    );
+    set_maze_slot_state(
         &mut commands,
         to_visit.walk(
             from.row as i64 - to.row as i64,
             from.column as i64 - to.column as i64,
         ),
         &mut maze,
+        MazeSlotState::Visited,
     );
     maze.maze_slots
         .get_mut(to.row)
@@ -190,54 +198,27 @@ fn visit(
         .state = MazeSlotState::Visited;
 }
 
-fn mark_as_visited(commands: &mut Commands, to_visit: SlotCoordinate, maze: &mut Maze) {
-    let entity = maze
-        .slots
-        .get(to_visit.row)
-        .unwrap()
-        .get(to_visit.column)
-        .unwrap()
-        .clone();
-    commands.entity(entity).despawn();
-    let size = 10.;
-    let entity = commands
-        .spawn_bundle(GeometryBuilder::build_as(
-            &get_tile(size.clone()),
-            ShapeColors::new(MazeSlotState::Visited.get_color()),
-            DrawMode::Fill(FillOptions::default()),
-            Transform::from_translation(Vec3::new(
-                to_visit.column as f32 * size.clone(),
-                to_visit.row as f32 * size.clone(),
-                0.,
-            )),
-        ))
-        .insert(to_visit.clone())
-        .id();
-    maze.slots
-        .get_mut(to_visit.row)
-        .unwrap()
-        .remove(to_visit.column);
-    maze.slots
-        .get_mut(to_visit.row)
-        .unwrap()
-        .insert(to_visit.column, entity.clone());
-}
-
 fn pave(
     mut commands: &mut Commands,
     from: &UnevenSlotCoordinate,
     to: &UnevenSlotCoordinate,
     mut maze: &mut Maze,
 ) {
-    let to_visit = SlotCoordinate::from(to.clone());
-    mark_as_paved(&mut commands, SlotCoordinate::from(from.clone()), &mut maze);
-    mark_as_paved(
+    let to_pave = SlotCoordinate::from(to.clone());
+    set_maze_slot_state(
         &mut commands,
-        to_visit.walk(
+        SlotCoordinate::from(from.clone()),
+        &mut maze,
+        MazeSlotState::Paved,
+    );
+    set_maze_slot_state(
+        &mut commands,
+        to_pave.walk(
             from.row as i64 - to.row as i64,
             from.column as i64 - to.column as i64,
         ),
         &mut maze,
+        MazeSlotState::Paved,
     );
     maze.maze_slots
         .get_mut(to.row)
@@ -247,7 +228,12 @@ fn pave(
         .state = MazeSlotState::Paved;
 }
 
-fn mark_as_paved(commands: &mut Commands, to_visit: SlotCoordinate, maze: &mut Maze) {
+fn set_maze_slot_state(
+    commands: &mut Commands,
+    to_visit: SlotCoordinate,
+    maze: &mut Maze,
+    state: MazeSlotState,
+) {
     let entity = maze
         .slots
         .get(to_visit.row)
@@ -256,15 +242,14 @@ fn mark_as_paved(commands: &mut Commands, to_visit: SlotCoordinate, maze: &mut M
         .unwrap()
         .clone();
     commands.entity(entity).despawn();
-    let size = 10.;
     let entity = commands
         .spawn_bundle(GeometryBuilder::build_as(
-            &get_tile(size.clone()),
-            ShapeColors::new(MazeSlotState::Paved.get_color()),
+            &get_tile(),
+            ShapeColors::new(state.get_color()),
             DrawMode::Fill(FillOptions::default()),
             Transform::from_translation(Vec3::new(
-                to_visit.column as f32 * size.clone(),
-                to_visit.row as f32 * size.clone(),
+                to_visit.column as f32 * TILE_SIZE,
+                to_visit.row as f32 * TILE_SIZE,
                 0.,
             )),
         ))
