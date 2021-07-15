@@ -109,7 +109,6 @@ fn paint_starter(mut commands: Commands) {
                         0.,
                     )),
                 ))
-                .insert(SlotCoordinate { column, row })
                 .id();
             current_slot_row.push(entity);
             if column % 2 != 0 && row % 2 != 0 {
@@ -131,11 +130,11 @@ fn paint_starter(mut commands: Commands) {
         .get_mut(starting_point.column)
         .unwrap()
         .state = MazeSlotState::Visited;
-    set_maze_slot_state(
+    set_slot_state(
         &mut commands,
         SlotCoordinate::from(starting_point),
         &mut maze,
-        MazeSlotState::Visited,
+        &MazeSlotState::Visited,
     );
     commands.insert_resource(maze);
 }
@@ -172,73 +171,62 @@ fn visit(
     mut commands: &mut Commands,
     from: &UnevenSlotCoordinate,
     to: &UnevenSlotCoordinate,
-    mut maze: &mut Maze,
+    maze: &mut Maze,
 ) {
-    let to_visit = SlotCoordinate::from(to.clone());
-    set_maze_slot_state(
-        &mut commands,
-        to_visit.clone(),
-        &mut maze,
-        MazeSlotState::Visited,
-    );
-    set_maze_slot_state(
-        &mut commands,
-        to_visit.walk(
-            from.row as i64 - to.row as i64,
-            from.column as i64 - to.column as i64,
-        ),
-        &mut maze,
-        MazeSlotState::Visited,
-    );
-    maze.maze_slots
-        .get_mut(to.row)
-        .unwrap()
-        .get_mut(to.column)
-        .unwrap()
-        .state = MazeSlotState::Visited;
+    set_path_state(&mut commands, to, from, maze, MazeSlotState::Visited);
 }
 
 fn pave(
     mut commands: &mut Commands,
     from: &UnevenSlotCoordinate,
     to: &UnevenSlotCoordinate,
-    mut maze: &mut Maze,
+    maze: &mut Maze,
 ) {
-    let to_pave = SlotCoordinate::from(to.clone());
-    set_maze_slot_state(
-        &mut commands,
-        SlotCoordinate::from(from.clone()),
-        &mut maze,
-        MazeSlotState::Paved,
-    );
-    set_maze_slot_state(
-        &mut commands,
-        to_pave.walk(
-            from.row as i64 - to.row as i64,
-            from.column as i64 - to.column as i64,
-        ),
-        &mut maze,
-        MazeSlotState::Paved,
-    );
-    maze.maze_slots
-        .get_mut(to.row)
-        .unwrap()
-        .get_mut(to.column)
-        .unwrap()
-        .state = MazeSlotState::Paved;
+    set_path_state(&mut commands, from, to, maze, MazeSlotState::Paved);
 }
 
-fn set_maze_slot_state(
-    commands: &mut Commands,
-    to_visit: SlotCoordinate,
-    maze: &mut Maze,
+fn set_path_state(
+    mut commands: &mut Commands,
+    set: &UnevenSlotCoordinate,
+    connecting_to: &UnevenSlotCoordinate,
+    mut maze: &mut Maze,
     state: MazeSlotState,
+) {
+    let to_visit = SlotCoordinate::from(set.clone());
+    set_slot_state(
+        &mut commands,
+        SlotCoordinate::from(set.clone()),
+        &mut maze,
+        &state,
+    );
+    set_slot_state(
+        &mut commands,
+        to_visit.walk(
+            connecting_to.row as i64 - set.row as i64,
+            connecting_to.column as i64 - set.column as i64,
+        ),
+        &mut maze,
+        &state,
+    );
+    maze.maze_slots
+        .get_mut(set.row)
+        .unwrap()
+        .get_mut(set.column)
+        .unwrap()
+        .state = state;
+}
+
+fn set_slot_state(
+    commands: &mut Commands,
+    slot: SlotCoordinate,
+    maze: &mut Maze,
+    state: &MazeSlotState,
 ) {
     let entity = maze
         .slots
-        .get(to_visit.row)
+        .get(slot.row)
         .unwrap()
-        .get(to_visit.column)
+        .get(slot.column)
         .unwrap()
         .clone();
     commands.entity(entity).despawn();
@@ -248,19 +236,15 @@ fn set_maze_slot_state(
             ShapeColors::new(state.get_color()),
             DrawMode::Fill(FillOptions::default()),
             Transform::from_translation(Vec3::new(
-                to_visit.column as f32 * TILE_SIZE,
-                to_visit.row as f32 * TILE_SIZE,
+                slot.column as f32 * TILE_SIZE,
+                slot.row as f32 * TILE_SIZE,
                 0.,
             )),
         ))
-        .insert(to_visit.clone())
         .id();
+    maze.slots.get_mut(slot.row).unwrap().remove(slot.column);
     maze.slots
-        .get_mut(to_visit.row)
+        .get_mut(slot.row)
         .unwrap()
-        .remove(to_visit.column);
-    maze.slots
-        .get_mut(to_visit.row)
-        .unwrap()
-        .insert(to_visit.column, entity.clone());
+        .insert(slot.column, entity.clone());
 }
