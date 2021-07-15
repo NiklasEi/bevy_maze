@@ -7,17 +7,17 @@ use bevy_prototype_lyon::prelude::*;
 use rand::{thread_rng, Rng};
 use std::convert::TryFrom;
 
-const TILE_SIZE: f32 = 10.;
+const TILE_SIZE: f32 = 8.;
 
 fn main() {
     App::build()
+        .insert_resource(ClearColor(MazeSlotState::UnTouched.get_color()))
         .insert_resource(WindowDescriptor {
             width: 800.0,
             height: 600.0,
             title: "Maze".to_string(),
             ..WindowDescriptor::default()
         })
-        .insert_resource(ClearColor(Color::DARK_GRAY))
         .insert_resource::<Stack>(vec![])
         .add_plugins(DefaultPlugins)
         .add_plugin(ShapePlugin)
@@ -81,8 +81,8 @@ fn get_tile() -> Rectangle {
 
 fn paint_starter(mut commands: Commands) {
     let mut maze = Maze {
-        height: 29,
-        width: 39,
+        height: 37,
+        width: 49,
         maze_slots: vec![],
         slots: vec![],
     };
