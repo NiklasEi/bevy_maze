@@ -19,11 +19,22 @@ fn main() {
             ..WindowDescriptor::default()
         })
         .insert_resource::<Stack>(vec![])
+        .add_state(AppState::Generating)
         .add_plugins(DefaultPlugins)
         .add_plugin(ShapePlugin)
-        .add_startup_system(paint_starter.system())
-        .add_system(generate.system())
+        .add_system_set(
+            SystemSet::on_enter(AppState::Generating).with_system(prepare_maze.system()),
+        )
+        .add_system_set(
+            SystemSet::on_update(AppState::Generating).with_system(draw_next_path.system()),
+        )
         .run();
+}
+
+#[derive(Clone, Eq, PartialEq, Debug, Hash)]
+pub enum AppState {
+    Generating,
+    Done,
 }
 
 type Stack = Vec<UnevenSlotCoordinate>;
@@ -79,7 +90,7 @@ fn get_tile() -> Rectangle {
     }
 }
 
-fn paint_starter(mut commands: Commands) {
+fn prepare_maze(mut commands: Commands) {
     let mut maze = Maze {
         height: 37,
         width: 49,
@@ -139,11 +150,12 @@ fn paint_starter(mut commands: Commands) {
     commands.insert_resource(maze);
 }
 
-fn generate(
+fn draw_next_path(
     mut commands: Commands,
     mut position: ResMut<UnevenSlotCoordinate>,
     mut maze: ResMut<Maze>,
     mut stack: ResMut<Stack>,
+    mut state: ResMut<State<AppState>>,
 ) {
     let options = maze.untouched_neighbors(&position);
     if options.len() > 0 {
@@ -163,6 +175,14 @@ fn generate(
         if let Some(last_position) = stack.pop() {
             pave(&mut commands, &position, &last_position, &mut maze);
             *position = last_position;
+        } else {
+            set_slot_state(
+                &mut commands,
+                SlotCoordinate::from(position.clone()),
+                &mut maze,
+                &MazeSlotState::Paved,
+            );
+            state.set(AppState::Done).unwrap();
         }
     }
 }
