@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 
 use crate::UnevenSlotCoordinate;
-use rand::{thread_rng, Rng};
+use rand::{random, thread_rng, Rng};
 
 pub struct Maze {
     pub height: usize,
@@ -30,18 +30,45 @@ impl Maze {
             .collect()
     }
 
-    pub fn get_next_random_position(
+    pub fn get_next_random_untouched_position(
         &self,
         position: &UnevenSlotCoordinate,
+        previous: Option<&UnevenSlotCoordinate>,
     ) -> Option<UnevenSlotCoordinate> {
         let mut options = self.untouched_neighbors(position);
         if options.len() < 1 {
             return None;
+        } else if options.len() == 1 {
+            return Some(options.first().unwrap().clone());
         }
-        let mut rng = thread_rng();
-        let index: usize = rng.gen_range(0..options.len());
+        let going_straight = self.go_straight(position, previous);
+        if random::<f32>() < 0.2
+            || going_straight.is_none()
+            || !options.contains(&going_straight.clone().unwrap())
+        {
+            let mut rng = thread_rng();
+            let index: usize = rng.gen_range(0..options.len());
 
-        Some(options.remove(index))
+            return Some(options.remove(index));
+        }
+
+        Some(going_straight.unwrap())
+    }
+
+    fn go_straight(
+        &self,
+        position: &UnevenSlotCoordinate,
+        previous: Option<&UnevenSlotCoordinate>,
+    ) -> Option<UnevenSlotCoordinate> {
+        let slot = previous?;
+        let going_straight = position.try_walk(
+            position.row as i64 - slot.row as i64,
+            position.column as i64 - slot.column as i64,
+        )?;
+        if going_straight.row > self.width - 1 && going_straight.column > self.height - 1 {
+            return None;
+        }
+        Some(going_straight)
     }
 
     pub fn get_random_slot_in_row(&self, row: usize) -> UnevenSlotCoordinate {

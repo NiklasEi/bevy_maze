@@ -4,7 +4,6 @@ use crate::maze::{Maze, MazeSlot, MazeSlotState};
 use bevy::prelude::*;
 use bevy_prototype_lyon::prelude::shapes::Rectangle;
 use bevy_prototype_lyon::prelude::*;
-use rand::{thread_rng, Rng};
 use std::convert::TryFrom;
 
 const TILE_SIZE: f32 = 8.;
@@ -52,13 +51,16 @@ pub struct UnevenSlotCoordinate {
 }
 
 impl UnevenSlotCoordinate {
+    fn try_walk(&self, row_delta: i64, column_delta: i64) -> Option<Self> {
+        let row = usize::try_from(self.row as i64 + row_delta).ok()?;
+        let column = usize::try_from(self.column as i64 + column_delta).ok()?;
+
+        Some(UnevenSlotCoordinate { row, column })
+    }
+
     fn walk(&self, row_delta: i64, column_delta: i64) -> Self {
-        UnevenSlotCoordinate {
-            row: usize::try_from(self.row as i64 + row_delta)
-                .expect("Overflow navigating the maze board"),
-            column: usize::try_from(self.column as i64 + column_delta)
-                .expect("Overflow navigating the maze board"),
-        }
+        self.try_walk(row_delta, column_delta)
+            .expect("Overflow navigating the maze board")
     }
 }
 
@@ -201,7 +203,7 @@ fn draw_next_path(
     mut stack: ResMut<Stack>,
     mut state: ResMut<State<AppState>>,
 ) {
-    if let Some(next_slot) = maze.get_next_random_position(&position) {
+    if let Some(next_slot) = maze.get_next_random_untouched_position(&position, stack.last()) {
         visit(&mut commands, &position, &next_slot, &mut maze);
 
         stack.push(position.clone());
