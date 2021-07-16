@@ -30,6 +30,20 @@ impl Maze {
             .collect()
     }
 
+    pub fn get_next_random_position(
+        &self,
+        position: &UnevenSlotCoordinate,
+    ) -> Option<UnevenSlotCoordinate> {
+        let mut options = self.untouched_neighbors(position);
+        if options.len() < 1 {
+            return None;
+        }
+        let mut rng = thread_rng();
+        let index: usize = rng.gen_range(0..options.len());
+
+        Some(options.remove(index))
+    }
+
     pub fn get_random_slot_in_row(&self, row: usize) -> UnevenSlotCoordinate {
         let mut random = thread_rng();
         let column = random.gen_range(0..self.width);

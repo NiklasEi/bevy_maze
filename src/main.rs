@@ -201,20 +201,11 @@ fn draw_next_path(
     mut stack: ResMut<Stack>,
     mut state: ResMut<State<AppState>>,
 ) {
-    let options = maze.untouched_neighbors(&position);
-    if options.len() > 0 {
-        let mut rng = thread_rng();
-        let index: usize = rng.gen_range(0..options.len());
-
-        visit(
-            &mut commands,
-            &position,
-            options.get(index).unwrap(),
-            &mut maze,
-        );
+    if let Some(next_slot) = maze.get_next_random_position(&position) {
+        visit(&mut commands, &position, &next_slot, &mut maze);
 
         stack.push(position.clone());
-        *position = options.get(index).unwrap().clone();
+        *position = next_slot;
     } else {
         if let Some(last_position) = stack.pop() {
             pave(&mut commands, &position, &last_position, &mut maze);
