@@ -19,20 +19,26 @@ fn main() {
             ..WindowDescriptor::default()
         })
         .insert_resource::<Stack>(vec![])
-        .add_state(AppState::Generating)
+        .add_state(AppState::TriggerGeneration)
         .add_plugins(DefaultPlugins)
         .add_plugin(ShapePlugin)
+        .add_system_set(
+            SystemSet::on_enter(AppState::TriggerGeneration)
+                .with_system(trigger_generation.exclusive_system()),
+        )
         .add_system_set(
             SystemSet::on_enter(AppState::Generating).with_system(prepare_maze.system()),
         )
         .add_system_set(
             SystemSet::on_update(AppState::Generating).with_system(draw_next_path.system()),
         )
+        .add_system_set(SystemSet::on_update(AppState::Done).with_system(wait_for_restart.system()))
         .run();
 }
 
 #[derive(Clone, Eq, PartialEq, Debug, Hash)]
 pub enum AppState {
+    TriggerGeneration,
     Generating,
     Done,
 }
@@ -87,6 +93,29 @@ fn get_tile() -> Rectangle {
         width: TILE_SIZE,
         height: TILE_SIZE,
         origin: Default::default(),
+    }
+}
+
+fn trigger_generation(world: &mut World) {
+    let stack = world.get_resource_mut::<Stack>();
+    if let Some(mut stack) = stack {
+        stack.clear()
+    }
+    let maze = world.get_resource_mut::<Maze>();
+    let mut despawn = vec![];
+    if let Some(mut maze) = maze {
+        for mut row in maze.slots.drain(..) {
+            for entity in row.drain(..) {
+                despawn.push(entity);
+            }
+        }
+    }
+    for entity in despawn.drain(..) {
+        world.entity_mut(entity).despawn()
+    }
+
+    if let Some(mut state) = world.get_resource_mut::<State<AppState>>() {
+        state.set(AppState::Generating).unwrap();
     }
 }
 
@@ -267,4 +296,10 @@ fn set_slot_state(
         .get_mut(slot.row)
         .unwrap()
         .insert(slot.column, entity.clone());
+}
+
+fn wait_for_restart(input: Res<Input<KeyCode>>, mut state: ResMut<State<AppState>>) {
+    if input.just_pressed(KeyCode::R) {
+        state.set(AppState::TriggerGeneration).unwrap();
+    }
 }
