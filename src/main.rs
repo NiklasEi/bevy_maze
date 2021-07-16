@@ -134,6 +134,8 @@ fn prepare_maze(mut commands: Commands) {
         )),
         ..OrthographicCameraBundle::new_2d()
     });
+    let starting_point = maze.get_random_slot_in_row(0);
+    let ending_point = maze.get_random_slot_in_row(maze.height - 1);
     for row in 0..(2 * maze.height + 1) {
         let mut current_slot_row = vec![];
         let mut current_row = vec![];
@@ -162,7 +164,6 @@ fn prepare_maze(mut commands: Commands) {
             maze.maze_slots.push(current_row);
         }
     }
-    let starting_point = UnevenSlotCoordinate { row: 0, column: 0 };
     commands.insert_resource(starting_point.clone());
     maze.maze_slots
         .get_mut(starting_point.row)
@@ -170,11 +171,25 @@ fn prepare_maze(mut commands: Commands) {
         .get_mut(starting_point.column)
         .unwrap()
         .state = MazeSlotState::Visited;
+    let starting_slot = SlotCoordinate::from(starting_point);
     set_slot_state(
         &mut commands,
-        SlotCoordinate::from(starting_point),
+        starting_slot.clone(),
         &mut maze,
         &MazeSlotState::Visited,
+    );
+
+    set_slot_state(
+        &mut commands,
+        starting_slot.walk(-1, 0),
+        &mut maze,
+        &MazeSlotState::Paved,
+    );
+    set_slot_state(
+        &mut commands,
+        SlotCoordinate::from(ending_point).walk(1, 0),
+        &mut maze,
+        &MazeSlotState::Paved,
     );
     commands.insert_resource(maze);
 }

@@ -1,6 +1,7 @@
 use bevy::prelude::*;
 
 use crate::UnevenSlotCoordinate;
+use rand::{thread_rng, Rng};
 
 pub struct Maze {
     pub height: usize,
@@ -27,6 +28,13 @@ impl Maze {
             })
             .map(|coord| coord.clone())
             .collect()
+    }
+
+    pub fn get_random_slot_in_row(&self, row: usize) -> UnevenSlotCoordinate {
+        let mut random = thread_rng();
+        let column = random.gen_range(0..self.width);
+
+        UnevenSlotCoordinate { row, column }
     }
 
     fn neighbors(&self, position: &UnevenSlotCoordinate) -> Vec<UnevenSlotCoordinate> {
