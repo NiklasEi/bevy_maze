@@ -128,8 +128,8 @@ fn trigger_generation(world: &mut World) {
 
 fn prepare_maze(mut commands: Commands) {
     let mut maze = Maze {
-        height: 50,
-        width: 50,
+        height: 101,
+        width: 101,
         maze_slots: vec![],
         slots: vec![],
     };
