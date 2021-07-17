@@ -6,8 +6,13 @@ use rand::{random, thread_rng, Rng};
 pub struct Maze {
     pub height: usize,
     pub width: usize,
-    pub maze_slots: Vec<Vec<MazeSlot>>,
-    pub slots: Vec<Vec<Entity>>,
+    pub maze_slots: Vec<Vec<UnevenMazeSlot>>,
+    pub slots: Vec<Vec<MazeSlot>>,
+}
+
+pub struct MazeSlot {
+    pub entity: Entity,
+    pub path: bool,
 }
 
 impl Maze {
@@ -144,7 +149,7 @@ impl Maze {
 }
 
 #[derive(Clone, Debug)]
-pub struct MazeSlot {
+pub struct UnevenMazeSlot {
     pub state: MazeSlotState,
 }
 
@@ -167,7 +172,7 @@ impl MazeSlotState {
 
 #[cfg(test)]
 mod tests {
-    use crate::maze::{Maze, MazeSlot, MazeSlotState};
+    use crate::maze::{Maze, MazeSlotState, UnevenMazeSlot};
     use crate::UnevenSlotCoordinate;
 
     #[test]
@@ -177,7 +182,7 @@ mod tests {
             width: 5,
             maze_slots: vec![
                 vec![
-                    MazeSlot {
+                    UnevenMazeSlot {
                         state: MazeSlotState::UnTouched
                     };
                     5
@@ -219,7 +224,7 @@ mod tests {
             width: 5,
             maze_slots: vec![
                 vec![
-                    MazeSlot {
+                    UnevenMazeSlot {
                         state: MazeSlotState::UnTouched
                     };
                     5

@@ -1,10 +1,12 @@
 mod maze;
 
-use crate::maze::{Maze, MazeSlot, MazeSlotState};
+use crate::maze::{Maze, MazeSlot, MazeSlotState, UnevenMazeSlot};
 use bevy::prelude::*;
 use bevy_prototype_lyon::prelude::shapes::Rectangle;
 use bevy_prototype_lyon::prelude::*;
+use image::{Rgb, RgbImage};
 use std::convert::TryFrom;
+use std::time::SystemTime;
 
 const TILE_SIZE: f32 = 8.;
 
@@ -12,8 +14,10 @@ fn main() {
     App::build()
         .insert_resource(ClearColor(MazeSlotState::UnTouched.get_color()))
         .insert_resource(WindowDescriptor {
-            width: 800.0,
-            height: 600.0,
+            // width: 800.0,
+            // height: 600.0,
+            width: 1600.0,
+            height: 1100.0,
             title: "Maze".to_string(),
             ..WindowDescriptor::default()
         })
@@ -31,6 +35,7 @@ fn main() {
         .add_system_set(
             SystemSet::on_update(AppState::Generating).with_system(draw_next_path.system()),
         )
+        .add_system_set(SystemSet::on_enter(AppState::Done).with_system(save_maze.system()))
         .add_system_set(SystemSet::on_update(AppState::Done).with_system(wait_for_restart.system()))
         .run();
 }
@@ -107,7 +112,7 @@ fn trigger_generation(world: &mut World) {
     let mut despawn = vec![];
     if let Some(mut maze) = maze {
         for mut row in maze.slots.drain(..) {
-            for entity in row.drain(..) {
+            for MazeSlot { entity, path: _ } in row.drain(..) {
                 despawn.push(entity);
             }
         }
@@ -123,8 +128,8 @@ fn trigger_generation(world: &mut World) {
 
 fn prepare_maze(mut commands: Commands) {
     let mut maze = Maze {
-        height: 37,
-        width: 49,
+        height: 50,
+        width: 50,
         maze_slots: vec![],
         slots: vec![],
     };
@@ -154,9 +159,12 @@ fn prepare_maze(mut commands: Commands) {
                     )),
                 ))
                 .id();
-            current_slot_row.push(entity);
+            current_slot_row.push(MazeSlot {
+                entity,
+                path: false,
+            });
             if column % 2 != 0 && row % 2 != 0 {
-                current_row.push(MazeSlot {
+                current_row.push(UnevenMazeSlot {
                     state: MazeSlotState::UnTouched,
                 });
             }
@@ -279,14 +287,14 @@ fn set_slot_state(
     maze: &mut Maze,
     state: &MazeSlotState,
 ) {
-    let entity = maze
+    let MazeSlot { entity, path: _ } = maze
         .slots
         .get(slot.row)
         .unwrap()
         .get(slot.column)
         .unwrap()
         .clone();
-    commands.entity(entity).despawn();
+    commands.entity(entity.clone()).despawn();
     let entity = commands
         .spawn_bundle(GeometryBuilder::build_as(
             &get_tile(),
@@ -300,14 +308,36 @@ fn set_slot_state(
         ))
         .id();
     maze.slots.get_mut(slot.row).unwrap().remove(slot.column);
-    maze.slots
-        .get_mut(slot.row)
-        .unwrap()
-        .insert(slot.column, entity.clone());
+    maze.slots.get_mut(slot.row).unwrap().insert(
+        slot.column,
+        MazeSlot {
+            entity: entity.clone(),
+            path: state == &MazeSlotState::Paved,
+        },
+    );
 }
 
 fn wait_for_restart(input: Res<Input<KeyCode>>, mut state: ResMut<State<AppState>>) {
     if input.just_pressed(KeyCode::R) {
         state.set(AppState::TriggerGeneration).unwrap();
     }
+}
+
+fn save_maze(maze: Res<Maze>) {
+    let mut img = RgbImage::new(maze.width as u32 * 2 + 1, maze.height as u32 * 2 + 1);
+    for (row_index, row) in maze.slots.iter().enumerate() {
+        for (column_index, slot) in row.iter().enumerate() {
+            if slot.path {
+                img.put_pixel(column_index as u32, row_index as u32, Rgb([255, 255, 255]));
+            } else {
+                img.put_pixel(column_index as u32, row_index as u32, Rgb([0, 0, 0]));
+            }
+        }
+    }
+
+    let timestamp = SystemTime::now()
+        .duration_since(SystemTime::UNIX_EPOCH)
+        .unwrap();
+    img.save(format!("output/maze_{}.png", timestamp.as_millis()))
+        .expect("Failed to save the maze as an image");
 }
